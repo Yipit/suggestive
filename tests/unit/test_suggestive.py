@@ -36,6 +36,10 @@ def test_expand():
         'c', 'cl', 'cla', 'clar', 'clare', 'claret', 'clarete',
     ])
 
+    suggestive.expand("Lincoln", min_chars=2).should.equal([
+        'li', 'lin', 'linc', 'linco', 'lincol', 'lincoln',
+    ])
+
 
 def test_dummy_backend():
     # Given that I have an instance of our dummy backend

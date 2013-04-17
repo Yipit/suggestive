@@ -3,7 +3,7 @@ from collections import defaultdict
 from itertools import chain
 
 
-def expand(phrase):
+def expand(phrase, min_chars=1):
     """Turns strings like this:
 
         >>> data = "Lincoln"
@@ -13,9 +13,11 @@ def expand(phrase):
         >>> expand(data)
         ['l', 'li', 'linc', 'linco', 'lincol', 'lincoln']
     """
-    return list(chain.from_iterable(
-        [word[0:index + 1] for index, sub in enumerate(word)]
+    base = list(chain.from_iterable(
+        [word[0:index] for index, sub in enumerate(word, start=min_chars)]
         for word in phrase.lower().split()))
+    result = set()
+    return [x for x in base if x not in result and not result.add(x)]
 
 
 class DummyBackend(object):
