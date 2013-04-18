@@ -99,6 +99,46 @@ def test_dummy_backend_querying():
     ])
 
 
+def test_dummy_backend_query_sorting():
+    # Given that I have an instance of our dummy backend
+    data = [
+        {"id": 0, "name": "Lincoln", "score": 33.3},
+        {"id": 1, "name": "Livia", "score": 22.2},
+        {"id": 5, "name": "Linus", "score": 25},  # Rita's brother! :)
+    ]
+    backend = suggestive.DummyBackend()
+    backend.index(data, field='name')
+
+    # When I try to query stuff sorting by score (defaults to asc), Then I see
+    # it worked
+    backend.query('li', field='name', sort='score').should.equal([
+        {"id": 1, "name": 'Livia', 'score': 22.2},
+        {"id": 5, "name": 'Linus', 'score': 25},
+        {"id": 0, "name": 'Lincoln', 'score': 33.3},
+    ])
+
+    # And I see that the 'reversed' version also works
+    backend.query('li', field='name', sort='-score').should.equal([
+        {"id": 0, "name": 'Lincoln', 'score': 33.3},
+        {"id": 5, "name": 'Linus', 'score': 25},
+        {"id": 1, "name": 'Livia', 'score': 22.2},
+    ])
+
+    # And I see that the sort also works for string fields
+    backend.query('li', field='name', sort='name').should.equal([
+        {"id": 0, "name": 'Lincoln', 'score': 33.3},
+        {"id": 5, "name": 'Linus', 'score': 25},
+        {"id": 1, "name": 'Livia', 'score': 22.2},
+    ])
+
+    # And I see that the sort also works for string fields reversed
+    backend.query('li', field='name', sort='-name').should.equal([
+        {"id": 1, "name": 'Livia', 'score': 22.2},
+        {"id": 5, "name": 'Linus', 'score': 25},
+        {"id": 0, "name": 'Lincoln', 'score': 33.3},
+    ])
+
+
 def test_redis_backend_indexing():
     # Given that I have an instance of our dummy backend
     conn = Mock()

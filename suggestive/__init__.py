@@ -46,8 +46,12 @@ class DummyBackend(object):
         documents = self.documents()
         for doc_id in self._terms[term.lower()]:
             result.append(documents[doc_id])
+
+        # Sorting the documents after finding them
         if sort:
-            result.sort(key=lambda x: x[sort])
+            desc = sort.startswith('-')
+            sort = sort[1:] if desc else sort
+            result.sort(key=lambda x: x[sort], reverse=desc)
         return result
 
 
