@@ -30,28 +30,23 @@ class DummyBackend(object):
     def documents(self):
         return self._documents
 
-    def index(self, data_source, field):
+    def index(self, data, field, score='score'):
         count = 0
-        for doc in data_source:
+        for doc in sorted(data, key=lambda x: x[score]):
             doc_id = doc['id']
             self._documents[doc_id] = doc
             for term in expand(doc[field]):
                 self._terms[term].append(doc_id)
             count += 1
-
         return count
 
-    def query(self, term, field, sort):
+    def query(self, term, reverse=False):
         result = []
         documents = self.documents()
         for doc_id in self._terms[term.lower()]:
             result.append(documents[doc_id])
-
-        # Sorting the documents after finding them
-        if sort:
-            desc = sort.startswith('-')
-            sort = sort[1:] if desc else sort
-            result.sort(key=lambda x: x[sort], reverse=desc)
+        if reverse:
+            result.reverse()
         return result
 
 
@@ -73,18 +68,19 @@ class RedisBackend(object):
         items = self.conn.hgetall(self.keys.for_docs()).items()
         return {doc_id: json.loads(doc) for doc_id, doc in items}
 
-    def index(self, data_source, field):
+    def index(self, data_source, field, score='score'):
         count = 0
         for doc in data_source:
             doc_id = doc['id']
             self.conn.hset(self.keys.for_docs(), doc_id, json.dumps(doc))
             for term in expand(doc[field]):
-                self.conn.zadd(self.keys.for_term(term), 0, doc_id)
+                self.conn.zadd(self.keys.for_term(term), doc[score], doc_id)
             count += 1
         return count
 
-    def query(self, term, field, sort):
-        doc_ids = self.conn.zrange(self.keys.for_term(term.lower()), 0, -1)
+    def query(self, term, reverse=False):
+        func = self.conn.zrevrange if not reverse else self.conn.zrange
+        doc_ids = func(self.keys.for_term(term.lower()), 0, -1)
         docs = self.conn.hmget(self.keys.for_docs(), doc_ids)
         return [json.loads(d) for d in docs]
 
@@ -98,5 +94,5 @@ class Suggestive(object):
     def index(self, data_source, field):
         self.backend.index(data_source, field)
 
-    def suggest(self, term, field, sort=None):
-        return self.backend.query(term, field, sort)
+    def suggest(self, term):
+        return self.backend.query(term)
