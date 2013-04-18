@@ -2,6 +2,8 @@
 from __future__ import unicode_literals
 import suggestive
 
+from mock import Mock
+
 
 def test_suggestive():
     s = suggestive.Suggestive('names', backend=suggestive.DummyBackend())
@@ -41,7 +43,7 @@ def test_expand():
     ])
 
 
-def test_dummy_backend():
+def test_dummy_backend_indexing():
     # Given that I have an instance of our dummy backend
     data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
     backend = suggestive.DummyBackend()
@@ -75,3 +77,73 @@ def test_dummy_backend():
         'lincol': [0],
         'lincoln': [0],
     })
+
+
+def test_dummy_backend_querying():
+    # Given that I have an instance of our dummy backend
+    data = [
+        {"id": 0, "name": "Lincoln"},
+        {"id": 1, "name": "Livia"},
+        {"id": 5, "name": "Linus"},  # Rita's brother! :)
+    ]
+    backend = suggestive.DummyBackend()
+    backend.index(data, field='name')
+
+    # When I try to query stuff
+    result = backend.query('lin', field='name', sort='name')
+
+    # Then I see the result is correct
+    result.should.equal([
+        {'id': 0, 'name': 'Lincoln'},
+        {"id": 5, "name": "Linus"},
+    ])
+
+
+def test_redis_backend_indexing():
+    # Given that I have an instance of our dummy backend
+    conn = Mock()
+    data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
+    backend = suggestive.RedisBackend(conn=conn)
+
+    # When I try to index stuff
+    indexed = backend.index(data, field='name')
+
+    # Then I see that the number of indexed items is right
+    indexed.should.equal(2)
+
+    # And that all the documents are indexed
+    conn.hgetall.return_value = {
+        '0': '{"id": 0, "name": "Lincoln"}',
+        '1': '{"id": 1, "name": "Clarete"}',
+    }
+    backend.documents().should.equal({
+        '0': {u'id': 0, u'name': u'Lincoln'},
+        '1': {u'id': 1, u'name': u'Clarete'}
+    })
+    conn.hgetall.assert_called_once_with('suggestive:d')
+
+
+def test_redis_backend_querying():
+    # Given that I have an instance of our dummy backend
+    conn = Mock()
+    data = [
+        {"id": 0, "name": "Lincoln"},
+        {"id": 1, "name": "Livia"},
+        {"id": 5, "name": "Linus"},  # Rita's brother! :)
+    ]
+    backend = suggestive.RedisBackend(conn=conn)
+    backend.index(data, field='name')
+
+    # When I try to query stuff
+    conn.zrange.return_value = ['0', '5']
+    conn.hmget.return_value = [
+        '{"id": 0, "name": "Lincoln"}',
+        '{"id": 5, "name": "Linus"}',
+    ]
+    result = backend.query('lin', field='name', sort=None)
+
+    # Then I see the result is correct
+    result.should.equal([
+        {'id': 0, 'name': 'Lincoln'},
+        {"id": 5, "name": 'Linus'},
+    ])
