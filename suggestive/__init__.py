@@ -79,10 +79,11 @@ class RedisBackend(object):
         return count
 
     def query(self, term, reverse=False):
-        func = self.conn.zrevrange if not reverse else self.conn.zrange
-        doc_ids = func(self.keys.for_term(term.lower()), 0, -1)
-        docs = self.conn.hmget(self.keys.for_docs(), doc_ids)
-        return [json.loads(d) for d in docs]
+        doc_ids = (self.conn.zrevrange if not reverse else self.conn.zrange)(
+            self.keys.for_term(term.lower()), 0, -1)
+        return doc_ids and [
+            json.loads(d) for d in self.conn.hmget(
+                self.keys.for_docs(), doc_ids)] or []
 
 
 class Suggestive(object):

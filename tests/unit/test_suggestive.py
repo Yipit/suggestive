@@ -215,3 +215,22 @@ def test_redis_backend_querying():
     ])
     conn.zrange.assert_called_once_with(
         'suggestive:d:li', 0, -1)
+
+
+def test_redis_backend_querying_without_indexing():
+    conn = Mock()
+    backend = suggestive.RedisBackend(conn=conn)
+
+    # Given that I have an empty result set
+    conn.hmget.side_effect = Exception('hmget shouldn\'t be called!')
+    conn.zrevrange.return_value = []
+
+    # When I query for something that is not indexed
+    backend.query('li').should.equal([])
+
+    # Then I see that I look for the right term
+    conn.zrevrange.assert_called_once_with(
+        'suggestive:d:li', 0, -1)
+
+    # And since no document was found, we didn't try to get them from redis.
+    conn.hmget.called.should.be.false
