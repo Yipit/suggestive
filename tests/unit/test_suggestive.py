@@ -167,6 +167,7 @@ def test_dummy_backend_query_sorting():
 def test_redis_backend_indexing():
     # Given that I have an instance of our dummy backend
     conn = Mock()
+    pipe = conn.pipeline.return_value
     data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
     backend = suggestive.RedisBackend(conn=conn)
 
@@ -183,7 +184,7 @@ def test_redis_backend_indexing():
     ])
 
     # And the term set was also fed
-    list(conn.zadd.call_args_list).should.equal([
+    list(pipe.zadd.call_args_list).should.equal([
         call('suggestive:d:l', 0, 0),
         call('suggestive:d:li', 0, 0),
         call('suggestive:d:lin', 0, 0),
@@ -211,10 +212,14 @@ def test_redis_backend_indexing():
     })
     conn.hgetall.assert_called_once_with('suggestive:d')
 
+    # And I also see that the pipeline was executed!
+    pipe.execute.assert_called_once_with()
+
 
 def test_redis_backend_indexing_multiple_fields():
     # Given that I have an instance of our dummy backend
     conn = Mock()
+    pipe = conn.pipeline.return_value
     data = [
         {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
         {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
@@ -225,7 +230,7 @@ def test_redis_backend_indexing_multiple_fields():
     backend.index(data, field=['first_name', 'last_name'], score='id')
 
     # And the term set was also fed
-    list(conn.zadd.call_args_list).should.equal([
+    list(pipe.zadd.call_args_list).should.equal([
         call('suggestive:d:l', 0, 0),
         call('suggestive:d:li', 0, 0),
         call('suggestive:d:lin', 0, 0),
@@ -250,6 +255,9 @@ def test_redis_backend_indexing_multiple_fields():
         call('suggestive:d:g', 1, 1),
         call('suggestive:d:gu', 1, 1),
     ])
+
+    # And I also see that the pipeline was executed!
+    pipe.execute.assert_called_once_with()
 
 
 def test_redis_backend_querying():

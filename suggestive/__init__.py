@@ -71,14 +71,16 @@ class RedisBackend(object):
 
     def index(self, data_source, field, score='score'):
         count = 0
+        pipe = self.conn.pipeline()
         for doc in data_source:
             doc_id = doc['id']
             self.conn.hset(self.keys.for_docs(), doc_id, json.dumps(doc))
             for f in isinstance(field, list) and field or [field]:
                 for term in expand(doc[f]):
-                    self.conn.zadd(
+                    pipe.zadd(
                         self.keys.for_term(term), doc[score], doc_id)
             count += 1
+        pipe.execute()
         return count
 
     def query(self, term, reverse=False):
