@@ -5,6 +5,9 @@ from itertools import chain
 import json
 
 
+__version__ = '0.0.2'
+
+
 def expand(phrase, min_chars=1):
     """Turns strings like this:
 
