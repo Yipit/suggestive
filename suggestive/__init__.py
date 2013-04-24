@@ -35,8 +35,9 @@ class DummyBackend(object):
         for doc in sorted(data, key=lambda x: x[score]):
             doc_id = doc['id']
             self._documents[doc_id] = doc
-            for term in expand(doc[field]):
-                self._terms[term].append(doc_id)
+            for f in isinstance(field, list) and field or [field]:
+                for term in expand(doc[f]):
+                    self._terms[term].append(doc_id)
             count += 1
         return count
 
@@ -73,8 +74,10 @@ class RedisBackend(object):
         for doc in data_source:
             doc_id = doc['id']
             self.conn.hset(self.keys.for_docs(), doc_id, json.dumps(doc))
-            for term in expand(doc[field]):
-                self.conn.zadd(self.keys.for_term(term), doc[score], doc_id)
+            for f in isinstance(field, list) and field or [field]:
+                for term in expand(doc[f]):
+                    self.conn.zadd(
+                        self.keys.for_term(term), doc[score], doc_id)
             count += 1
         return count
 

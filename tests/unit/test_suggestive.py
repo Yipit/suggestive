@@ -79,6 +79,45 @@ def test_dummy_backend_indexing():
     })
 
 
+def test_dummy_backend_indexing_multiple_fields():
+    # Given that I have some data to index
+    data = [
+        {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
+        {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+    ]
+    backend = suggestive.DummyBackend()
+
+    # When I try to index stuff
+    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    # And that the cache contains all indexed fields
+    dict(backend._terms).should.equal({
+        'c': [0],
+        'cl': [0],
+        'cla': [0],
+        'clar': [0],
+        'clare': [0],
+        'claret': [0],
+        'clarete': [0],
+        'l': [0],
+        'li': [0],
+        'lin': [0],
+        'linc': [0],
+        'linco': [0],
+        'lincol': [0],
+        'lincoln': [0],
+        'm': [1],
+        'mi': [1],
+        'min': [1],
+        'ming': [1],
+        'mingw': [1],
+        'mingwe': [1],
+        'mingwei': [1],
+        'g': [1],
+        'gu': [1],
+    })
+
+
 def test_dummy_backend_querying():
     # Given that I have an instance of our dummy backend
     data = [
@@ -171,6 +210,46 @@ def test_redis_backend_indexing():
         '1': {u'id': 1, u'name': u'Clarete'}
     })
     conn.hgetall.assert_called_once_with('suggestive:d')
+
+
+def test_redis_backend_indexing_multiple_fields():
+    # Given that I have an instance of our dummy backend
+    conn = Mock()
+    data = [
+        {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
+        {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+    ]
+    backend = suggestive.RedisBackend(conn=conn)
+
+    # When I try to index stuff
+    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    # And the term set was also fed
+    list(conn.zadd.call_args_list).should.equal([
+        call('suggestive:d:l', 0, 0),
+        call('suggestive:d:li', 0, 0),
+        call('suggestive:d:lin', 0, 0),
+        call('suggestive:d:linc', 0, 0),
+        call('suggestive:d:linco', 0, 0),
+        call('suggestive:d:lincol', 0, 0),
+        call('suggestive:d:lincoln', 0, 0),
+        call('suggestive:d:c', 0, 0),
+        call('suggestive:d:cl', 0, 0),
+        call('suggestive:d:cla', 0, 0),
+        call('suggestive:d:clar', 0, 0),
+        call('suggestive:d:clare', 0, 0),
+        call('suggestive:d:claret', 0, 0),
+        call('suggestive:d:clarete', 0, 0),
+        call('suggestive:d:m', 1, 1),
+        call('suggestive:d:mi', 1, 1),
+        call('suggestive:d:min', 1, 1),
+        call('suggestive:d:ming', 1, 1),
+        call('suggestive:d:mingw', 1, 1),
+        call('suggestive:d:mingwe', 1, 1),
+        call('suggestive:d:mingwei', 1, 1),
+        call('suggestive:d:g', 1, 1),
+        call('suggestive:d:gu', 1, 1),
+    ])
 
 
 def test_redis_backend_querying():
