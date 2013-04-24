@@ -45,14 +45,14 @@ class DummyBackend(object):
             count += 1
         return count
 
-    def query(self, term, reverse=False):
+    def query(self, term, reverse=False, limit=-1, offset=0):
         result = []
         documents = self.documents()
         for doc_id in self._terms[term.lower()]:
             result.append(documents[doc_id])
         if reverse:
             result.reverse()
-        return result
+        return result[offset:limit >= 0 and (offset + limit) or None]
 
 
 class KeyManager(object):
@@ -87,9 +87,11 @@ class RedisBackend(object):
         pipe.execute()
         return count
 
-    def query(self, term, reverse=False):
+    def query(self, term, reverse=False, limit=-1, offset=0):
         doc_ids = (self.conn.zrevrange if not reverse else self.conn.zrange)(
-            self.keys.for_term(term.lower()), 0, -1)
+            self.keys.for_term(term.lower()),
+            offset,
+            limit >= 0 and (offset + limit) or -1)
         return doc_ids and [
             json.loads(d) for d in self.conn.hmget(
                 self.keys.for_docs(), doc_ids)] or []
@@ -104,5 +106,5 @@ class Suggestive(object):
     def index(self, data_source, field):
         self.backend.index(data_source, field)
 
-    def suggest(self, term):
-        return self.backend.query(term)
+    def suggest(self, term, limit=-1, offset=0):
+        return self.backend.query(term, limit=limit, offset=offset)

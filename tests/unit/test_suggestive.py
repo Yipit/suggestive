@@ -31,6 +31,12 @@ def test_suggestive():
         {"id": 2, "name": "Fábio", "score": 20000},
     ])
 
+    # And I also see that I can limit my results
+    s.suggest('F', limit=2, offset=1).should.equal([
+        {"id": 0, "name": "Fafá de Belém", "score": 23},
+        {"id": 2, "name": "Fábio", "score": 20000},
+    ])
+
 
 def test_expand():
     suggestive.expand("Lincoln Clarete").should.equal([
@@ -135,6 +141,43 @@ def test_dummy_backend_querying():
     result.should.equal([
         {'id': 0, 'name': 'Lincoln'},
         {"id": 5, "name": "Linus"},
+    ])
+
+
+def test_dummy_backend_query_limit():
+    # Given that I have an instance of our dummy backend
+    data = [
+        {"id": 0, "name": "Lincoln"},
+        {"id": 1, "name": "Livia"},
+        {"id": 2, "name": "Linus"},
+        {"id": 3, "name": "Lidia"},
+    ]
+    backend = suggestive.DummyBackend()
+    backend.index(data, field='name', score='id')
+
+    # Then I see that limit and offset are working properly with different
+    # parameters
+    backend.query('li', limit=1, offset=0).should.equal([
+        {'id': 0, 'name': 'Lincoln'},
+    ])
+    backend.query('li', limit=1, offset=1).should.equal([
+        {"id": 1, "name": "Livia"},
+    ])
+    backend.query('li', limit=2, offset=1).should.equal([
+        {"id": 1, "name": "Livia"},
+        {"id": 2, "name": "Linus"},
+    ])
+
+    # And I also see that the limit param works without the offset
+    backend.query('li', limit=2).should.equal([
+        {'id': 0, 'name': 'Lincoln'},
+        {"id": 1, "name": "Livia"},
+    ])
+
+    # And I also see that the offset param works without the limit
+    backend.query('li', offset=2).should.equal([
+        {"id": 2, "name": "Linus"},
+        {"id": 3, "name": "Lidia"},
     ])
 
 
@@ -321,3 +364,41 @@ def test_redis_backend_querying_without_indexing():
 
     # And since no document was found, we didn't try to get them from redis.
     conn.hmget.called.should.be.false
+
+
+def test_redis_backend_query_limit():
+    # Given that I have an instance of our dummy backend
+    data = [
+        {"id": 0, "name": "Lincoln"},
+        {"id": 1, "name": "Livia"},
+        {"id": 2, "name": "Linus"},
+        {"id": 3, "name": "Lidia"},
+    ]
+    conn = Mock()
+    conn.hmget.return_value = []
+    backend = suggestive.RedisBackend(conn=conn)
+    backend.index(data, field='name', score='id')
+
+    # Then I see that limit and offset are working properly with different
+    # parameters
+    backend.query('li', limit=1, offset=0)
+    conn.zrevrange.assert_called_once_with('suggestive:d:li', 0, 1)
+    conn.reset_mock()
+
+    backend.query('li', limit=1, offset=1)
+    conn.zrevrange.assert_called_once_with('suggestive:d:li', 1, 2)
+    conn.reset_mock()
+
+    backend.query('li', limit=2, offset=1)
+    conn.zrevrange.assert_called_once_with('suggestive:d:li', 1, 3)
+    conn.reset_mock()
+
+    # And I also see that the limit param works without the offset
+    backend.query('li', limit=2)
+    conn.zrevrange.assert_called_once_with('suggestive:d:li', 0, 2)
+    conn.reset_mock()
+
+    # And I also see that the offset param works without the limit
+    backend.query('li', offset=2)
+    conn.zrevrange.assert_called_once_with('suggestive:d:li', 2, -1)
+    conn.reset_mock()
