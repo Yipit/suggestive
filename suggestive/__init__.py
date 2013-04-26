@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 from collections import defaultdict
 from itertools import chain
 
+import re
+import six
 import json
 
 
@@ -26,6 +28,15 @@ def expand(phrase, min_chars=1):
     return [x for x in base if x not in result and not result.add(x)]
 
 
+def find_words_in_doc(doc, term):
+    sub = []
+    values = [v for v in doc.values() if isinstance(v, six.string_types)]
+    for value in values:
+        words = re.findall('[\w-]+', value, re.I | re.U)
+        sub.extend(w for w in words if w.lower().startswith(term))
+    return list(sub)
+
+
 class DummyBackend(object):
     def __init__(self):
         self._documents = {}
@@ -45,11 +56,18 @@ class DummyBackend(object):
             count += 1
         return count
 
-    def query(self, term, reverse=False, limit=-1, offset=0):
+    def query(self, term, reverse=False, words=False, limit=-1, offset=0):
         result = []
+        term = term.lower()
         documents = self.documents()
-        for doc_id in self._terms[term.lower()]:
-            result.append(documents[doc_id])
+
+        for doc_id in self._terms[term]:
+            if words:
+                result.extend(
+                    w for w in find_words_in_doc(documents[doc_id], term)
+                    if w not in result)
+            else:
+                result.append(documents[doc_id])
         if reverse:
             result.reverse()
         return result[offset:limit >= 0 and (offset + limit) or None]
@@ -87,14 +105,24 @@ class RedisBackend(object):
         pipe.execute()
         return count
 
-    def query(self, term, reverse=False, limit=-1, offset=0):
+    def query(self, term, reverse=False, words=False, limit=-1, offset=0):
         doc_ids = (self.conn.zrevrange if not reverse else self.conn.zrange)(
             self.keys.for_term(term.lower()),
             offset,
             limit >= 0 and (offset + limit) or -1)
-        return doc_ids and [
-            json.loads(d) for d in self.conn.hmget(
-                self.keys.for_docs(), doc_ids)] or []
+
+        result = []
+        docs = doc_ids and self.conn.hmget(self.keys.for_docs(), doc_ids) or []
+        for d in docs:
+            doc = json.loads(d)
+            if words:
+                result.extend(
+                    w for w in find_words_in_doc(doc, term)
+                    if w not in result)
+            else:
+                result.append(doc)
+
+        return result
 
 
 class Suggestive(object):
@@ -106,5 +134,6 @@ class Suggestive(object):
     def index(self, data_source, field):
         self.backend.index(data_source, field)
 
-    def suggest(self, term, limit=-1, offset=0):
-        return self.backend.query(term, limit=limit, offset=offset)
+    def suggest(self, term, words=False, limit=-1, offset=0):
+        return self.backend.query(
+            term, words=words, limit=limit, offset=offset)

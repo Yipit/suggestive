@@ -1,8 +1,9 @@
 # -*- coding: utf-8; -*-
 from __future__ import unicode_literals
-import suggestive
-
 from mock import Mock, call
+
+import suggestive
+import json
 
 
 def test_suggestive():
@@ -208,7 +209,7 @@ def test_dummy_backend_query_sorting():
 
 
 def test_redis_backend_indexing():
-    # Given that I have an instance of our dummy backend
+    # Given that I have an instance of our redis backend
     conn = Mock()
     pipe = conn.pipeline.return_value
     data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
@@ -402,3 +403,35 @@ def test_redis_backend_query_limit():
     backend.query('li', offset=2)
     conn.zrevrange.assert_called_once_with('suggestive:d:li', 2, -1)
     conn.reset_mock()
+
+
+def test_both_backends_query_return_term_prefixed_words():
+    # Given that I have an instance of our dummy backend with some data indexed
+    data = [
+        {"id": 0, 'field1': 'Pascal programming language', 'field2': 'Python'},
+        {"id": 1, 'field1': 'Italian Paníni', 'field2': 'Pizza Italiana'},
+        {"id": 2, 'field1': 'Pacific Ocean', 'field2': 'Posseidon, The king'},
+        {"id": 3, 'field1': 'Kiwi', 'field2': 'Passion-Fruit'},
+        {"id": 4, 'field1': 'I love', 'field2': 'Paníni'},
+    ]
+    conn = Mock()
+    conn.zrevrange.return_value = range(4)
+    conn.hmget.return_value = [json.dumps(item) for item in data]
+
+    dummy_backend = suggestive.DummyBackend()
+    dummy_backend.index(data, field=['field1', 'field2'], score='id')
+    redis_backend = suggestive.RedisBackend(conn=conn)
+    redis_backend.index(data, field=['field1', 'field2'], score='id')
+
+    # When I query for the `Pa` prefix, asking for the words found in the
+    # documents
+    dummy_backend.query('pa', words=True).should.equal([
+        'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
+    ])
+    redis_backend.query('pa', words=True).should.equal([
+        'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
+    ])
+    suggestive.Suggestive('meh', backend=dummy_backend).suggest(
+        'pa', words=True).should.equal([
+            'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
+        ])
