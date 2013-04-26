@@ -42,7 +42,7 @@ install_requires, dependency_links = parse_requirements()
 if __name__ == '__main__':
     setup(
         name='suggestive',
-        version='0.0.2',
+        version='0.0.3',
         description='Magically add auto complete to your python project',
         long_description=local_file('README.md'),
         author=u'Lincoln de Sousa, Fábio M. Costa',
