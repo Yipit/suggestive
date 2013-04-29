@@ -31,6 +31,39 @@ def test_redis_backend_indexing(context):
 
 
 @scenario(connect)
+def test_redis_backend_remove_items(context):
+    # Given that I have some indexed data
+    data = [
+        {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
+        {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+        {"id": 2, "first_name": "Livia", "last_name": "C"},
+    ]
+    backend = suggestive.RedisBackend(conn=context.conn)
+    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    # When I try to remove stuff
+    backend.remove(0)
+
+    # Then I see that the terms that also occour in other docs are still
+    # there. But we got rid of the document 0
+    context.conn.zrange('suggestive:d:l', 0, -1).should.equal(['2'])
+    context.conn.zrange('suggestive:d:li', 0, -1).should.equal(['2'])
+
+    # And I see that the terms for this document were removed
+    context.conn.exists('suggestive:d:lin').should.be.false
+    context.conn.exists('suggestive:d:linc').should.be.false
+    context.conn.exists('suggestive:d:linco').should.be.false
+    context.conn.exists('suggestive:d:lincol').should.be.false
+    context.conn.exists('suggestive:d:lincoln').should.be.false
+
+    # And the cache key should also be removed
+    context.conn.exists('suggestive:dt:0').should.be.false
+
+    # And I also see that we successfuly removed the document too
+    context.conn.hexists('suggestive:d', 0).should.be.false
+
+
+@scenario(connect)
 def test_redis_backend_querying(context):
     data = [
         {"id": 0, "name": "Lincoln", "score": 33.3},

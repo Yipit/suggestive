@@ -56,6 +56,17 @@ class DummyBackend(object):
             count += 1
         return count
 
+    def remove(self, doc_id):
+        # Cleaning up terms
+        for term, docs in self._terms.items():
+            if doc_id in docs:
+                docs.remove(doc_id)
+                if not docs:
+                    del self._terms[term]
+
+        # Cleaning up the actual document
+        del self._documents[doc_id]
+
     def query(self, term, reverse=False, words=False, limit=-1, offset=0):
         result = []
         term = term.lower()
@@ -81,6 +92,9 @@ class KeyManager(object):
     def for_term(self, term):
         return 'suggestive:d:{}'.format(term)
 
+    def for_cache(self, doc_id):
+        return 'suggestive:dt:{}'.format(doc_id)
+
 
 class RedisBackend(object):
     def __init__(self, conn=None):
@@ -98,12 +112,38 @@ class RedisBackend(object):
             doc_id = doc['id']
             self.conn.hset(self.keys.for_docs(), doc_id, json.dumps(doc))
             for f in isinstance(field, list) and field or [field]:
-                for term in expand(doc[f]):
+
+                # All possible terms for the fields we're analyzing right now.
+                terms = expand(doc[f])
+
+                # Caching which documents were related to which terms. It will
+                # speed up the removal process of a document from its terms a
+                # lot.
+                pipe.sadd(self.keys.for_cache(doc_id), *terms)
+
+                # Time to add the documents to the terms expanded from the
+                # indexable fields.
+                for term in terms:
                     pipe.zadd(
                         self.keys.for_term(term), doc[score], doc_id)
             count += 1
         pipe.execute()
         return count
+
+    def remove(self, doc_id):
+        pipe = self.conn.pipeline()
+        cache = self.keys.for_cache(doc_id)
+
+        # First, we remove the document id from the terms it is related to;
+        for term in self.conn.smembers(cache):
+            pipe.zrem(self.keys.for_term(term), doc_id)
+        pipe.execute()
+
+        # The second step is to remove the cache key, we don't need it anymore;
+        self.conn.delete(cache)
+
+        # Last but not least, we need to get rid of the actual document now;
+        self.conn.hdel(self.keys.for_docs(), doc_id)
 
     def query(self, term, reverse=False, words=False, limit=-1, offset=0):
         doc_ids = (self.conn.zrevrange if not reverse else self.conn.zrange)(
@@ -133,6 +173,9 @@ class Suggestive(object):
 
     def index(self, data_source, field):
         self.backend.index(data_source, field)
+
+    def remove(self, doc_id):
+        self.backend.remove(doc_id)
 
     def suggest(self, term, words=False, limit=-1, offset=0):
         return self.backend.query(

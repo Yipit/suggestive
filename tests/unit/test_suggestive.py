@@ -125,6 +125,45 @@ def test_dummy_backend_indexing_multiple_fields():
     })
 
 
+def test_dummy_backend_remove_items():
+    # Given that I have some indexed data
+    data = [
+        {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
+        {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+        {"id": 2, "first_name": "Livia", "last_name": "C"},
+    ]
+    backend = suggestive.DummyBackend()
+    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    # When I try to remove stuff
+    backend.remove(0)
+
+    # Then I see that we successfuly removed the first document
+    backend.documents().should.equal(
+        {1: {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+         2: {"id": 2, "first_name": "Livia", "last_name": "C"}},
+    )
+
+    # I also see that the terms for this document were removed
+    dict(backend._terms).should.equal({
+        'c': [2],
+        'l': [2],
+        'li': [2],
+        'liv': [2],
+        'livi': [2],
+        'livia': [2],
+        'm': [1],
+        'mi': [1],
+        'min': [1],
+        'ming': [1],
+        'mingw': [1],
+        'mingwe': [1],
+        'mingwei': [1],
+        'g': [1],
+        'gu': [1],
+    })
+
+
 def test_dummy_backend_querying():
     # Given that I have an instance of our dummy backend
     data = [
@@ -227,6 +266,13 @@ def test_redis_backend_indexing():
         call('suggestive:d', 1, '{"id": 1, "name": "Clarete"}')
     ])
 
+    # And I see that we have a special stash to save to which terms each
+    # document was added (it will make deletions way easier)
+    list(pipe.sadd.call_args_list).should.equal([
+        call('suggestive:dt:0', *suggestive.expand('lincoln')),
+        call('suggestive:dt:1', *suggestive.expand('clarete')),
+    ])
+
     # And the term set was also fed
     list(pipe.zadd.call_args_list).should.equal([
         call('suggestive:d:l', 0, 0),
@@ -258,6 +304,51 @@ def test_redis_backend_indexing():
 
     # And I also see that the pipeline was executed!
     pipe.execute.assert_called_once_with()
+
+
+def test_redis_backend_remove_items():
+    # Given that I have some indexed data
+    conn = Mock()
+    pipe = conn.pipeline.return_value
+    data = [
+        {"id": 0, "first_name": "Lincoln", "last_name": "Clarete"},
+        {"id": 1, "first_name": "Mingwei", "last_name": "Gu"},
+        {"id": 2, "first_name": "Livia", "last_name": "C"},
+    ]
+    backend = suggestive.RedisBackend(conn=conn)
+    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    # Mocking the term X doc cache set
+    conn.smembers.return_value = (
+        suggestive.expand('lincoln') + suggestive.expand('clarete'))
+
+    # When I try to remove stuff
+    backend.remove(0)
+
+    # Then I see that the terms for this document were removed
+    list(pipe.zrem.call_args_list).should.equal([
+        call('suggestive:d:l', 0),
+        call('suggestive:d:li', 0),
+        call('suggestive:d:lin', 0),
+        call('suggestive:d:linc', 0),
+        call('suggestive:d:linco', 0),
+        call('suggestive:d:lincol', 0),
+        call('suggestive:d:lincoln', 0),
+        call('suggestive:d:c', 0),
+        call('suggestive:d:cl', 0),
+        call('suggestive:d:cla', 0),
+        call('suggestive:d:clar', 0),
+        call('suggestive:d:clare', 0),
+        call('suggestive:d:claret', 0),
+        call('suggestive:d:clarete', 0),
+    ])
+    pipe.execute.call_count.should.equal(2)
+
+    # And the cache key should also be removed
+    conn.delete.assert_called_once_with('suggestive:dt:0')
+
+    # And I also see that we successfuly removed the document too
+    conn.hdel.assert_called_once_with('suggestive:d', 0)
 
 
 def test_redis_backend_indexing_multiple_fields():
@@ -435,3 +526,15 @@ def test_both_backends_query_return_term_prefixed_words():
         'pa', words=True).should.equal([
             'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
         ])
+
+
+def test_suggestive_remove():
+    # Given that we have an instance of suggestive with a fake backend
+    backend = Mock()
+    s = suggestive.Suggestive('stuff', backend=backend)
+
+    # When I try to remove a document from the index
+    s.remove(1)
+
+    # Then I see that the backend remove() method was successfuly called
+    backend.remove.assert_called_once_with(1)
