@@ -49,6 +49,7 @@ class DummyBackend(object):
         count = 0
         for doc in sorted(data, key=lambda x: x[score]):
             doc_id = doc['id']
+            self.remove(doc_id)
             self._documents[doc_id] = doc
             for f in isinstance(field, list) and field or [field]:
                 for term in expand(doc[f]):
@@ -65,7 +66,8 @@ class DummyBackend(object):
                     del self._terms[term]
 
         # Cleaning up the actual document
-        del self._documents[doc_id]
+        if doc_id in self._documents:
+            del self._documents[doc_id]
 
     def query(self, term, reverse=False, words=False, limit=-1, offset=0):
         result = []
@@ -110,6 +112,7 @@ class RedisBackend(object):
         pipe = self.conn.pipeline()
         for doc in data_source:
             doc_id = doc['id']
+            self.remove(doc_id)
             self.conn.hset(self.keys.for_docs(), doc_id, json.dumps(doc))
             for f in isinstance(field, list) and field or [field]:
 

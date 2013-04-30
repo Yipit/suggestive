@@ -92,6 +92,30 @@ def test_redis_backend_querying(context):
 
 
 @scenario(connect)
+def test_redis_backend_cleaning_before_indexing(context):
+    # Given that I have an instance of our redis backend with some indexed data
+    data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
+    backend = suggestive.RedisBackend(conn=context.conn)
+    backend.index(data, field='name', score='id')
+
+    # When I try to index the same documents but with different values
+    data = [{'id': 0, 'name': 'Mingwei'}]
+    backend.index(data, field='name', score='id')
+
+    # Then I see that the remove method was called for every single document
+    # that before indexing it
+    context.conn.smembers(backend.keys.for_cache(0)).should.equal(set([
+        'm',
+        'mi',
+        'min',
+        'ming',
+        'mingw',
+        'mingwe',
+        'mingwei',
+    ]))
+
+
+@scenario(connect)
 def test_suggestive(context):
     s = suggestive.Suggestive(
         'names',

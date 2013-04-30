@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 from __future__ import unicode_literals
-from mock import Mock, call
+from mock import Mock, call, patch
 
 import suggestive
 import json
@@ -84,6 +84,31 @@ def test_dummy_backend_indexing():
         'lincol': [0],
         'lincoln': [0],
     })
+
+
+def test_dummy_backend_cleaning_before_indexing():
+    # Given that I have an instance of our dummy backend with some indexed data
+    data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
+    backend = suggestive.DummyBackend()
+    backend.index(data, field='name', score='name')
+
+    # When I try to index the same documents but with different values
+    data = [{'id': 0, 'name': 'Mingwei'}]
+    backend.index(data, field='name', score='name')
+
+    # Then I see that the terms were cleaned up too
+    excluded_terms = [
+        'l',
+        'li',
+        'lin',
+        'linc',
+        'linco',
+        'lincol',
+        'lincoln',
+    ]
+
+    for term in excluded_terms:
+        backend._terms.should_not.contain(term)
 
 
 def test_dummy_backend_indexing_multiple_fields():
@@ -253,6 +278,7 @@ def test_redis_backend_indexing():
     pipe = conn.pipeline.return_value
     data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
     backend = suggestive.RedisBackend(conn=conn)
+    backend.remove = Mock()     # We don't care about removing stuff here
 
     # When I try to index stuff
     indexed = backend.index(data, field='name', score='id')
@@ -316,7 +342,9 @@ def test_redis_backend_remove_items():
         {"id": 2, "first_name": "Livia", "last_name": "C"},
     ]
     backend = suggestive.RedisBackend(conn=conn)
-    backend.index(data, field=['first_name', 'last_name'], score='id')
+
+    with patch.object(backend, 'remove'):
+        backend.index(data, field=['first_name', 'last_name'], score='id')
 
     # Mocking the term X doc cache set
     conn.smembers.return_value = (
@@ -342,6 +370,7 @@ def test_redis_backend_remove_items():
         call('suggestive:d:claret', 0),
         call('suggestive:d:clarete', 0),
     ])
+
     pipe.execute.call_count.should.equal(2)
 
     # And the cache key should also be removed
@@ -351,8 +380,29 @@ def test_redis_backend_remove_items():
     conn.hdel.assert_called_once_with('suggestive:d', 0)
 
 
+def test_redis_backend_cleaning_before_indexing():
+    # Given that I have an instance of our redis backend with some indexed data
+    conn = Mock()
+    data = [{"id": 0, "name": "Lincoln"}, {"id": 1, "name": "Clarete"}]
+    backend = suggestive.RedisBackend(conn=conn)
+    backend.remove = Mock()
+    backend.index(data, field='name', score='name')
+
+    # When I try to index the same documents but with different values
+    data = [{'id': 0, 'name': 'Mingwei'}]
+    backend.index(data, field='name', score='name')
+
+    # Then I see that the remove method was called for every single document
+    # that before indexing it
+    list(backend.remove.call_args_list).should.equal([
+        call(0),
+        call(1),
+        call(0),
+    ])
+
+
 def test_redis_backend_indexing_multiple_fields():
-    # Given that I have an instance of our dummy backend
+    # Given that I have an instance of our redis backend
     conn = Mock()
     pipe = conn.pipeline.return_value
     data = [
@@ -362,7 +412,8 @@ def test_redis_backend_indexing_multiple_fields():
     backend = suggestive.RedisBackend(conn=conn)
 
     # When I try to index stuff
-    backend.index(data, field=['first_name', 'last_name'], score='id')
+    with patch.object(backend, 'remove'):
+        backend.index(data, field=['first_name', 'last_name'], score='id')
 
     # And the term set was also fed
     list(pipe.zadd.call_args_list).should.equal([
@@ -405,7 +456,8 @@ def test_redis_backend_querying():
 
     # Given that I have an instance of our Redis backend
     backend = suggestive.RedisBackend(conn=conn)
-    backend.index(data, field='name')  # We'll choose `score` by default
+    with patch.object(backend, 'remove'):
+        backend.index(data, field='name')  # We'll choose `score` by default
     conn.zrevrange.return_value = ['1', '5', '0']
     conn.zrange.return_value = ['0', '5', '1']
 
@@ -469,7 +521,8 @@ def test_redis_backend_query_limit():
     conn = Mock()
     conn.hmget.return_value = []
     backend = suggestive.RedisBackend(conn=conn)
-    backend.index(data, field='name', score='id')
+    with patch.object(backend, 'remove'):
+        backend.index(data, field='name', score='id')
 
     # Then I see that limit and offset are working properly with different
     # parameters
@@ -512,7 +565,8 @@ def test_both_backends_query_return_term_prefixed_words():
     dummy_backend = suggestive.DummyBackend()
     dummy_backend.index(data, field=['field1', 'field2'], score='id')
     redis_backend = suggestive.RedisBackend(conn=conn)
-    redis_backend.index(data, field=['field1', 'field2'], score='id')
+    with patch.object(redis_backend, 'remove'):
+        redis_backend.index(data, field=['field1', 'field2'], score='id')
 
     # When I query for the `Pa` prefix, asking for the words found in the
     # documents
