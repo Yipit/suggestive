@@ -6,7 +6,7 @@
 #
 # <variables>
 PACKAGE=suggestive
-CUSTOM_PIP_INDEX=localshop
+CUSTOM_PIP_INDEX=
 # </variables>
 
 
