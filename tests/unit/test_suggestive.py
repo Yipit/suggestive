@@ -11,31 +11,31 @@ def test_suggestive():
 
     # Given that I have a source registered in my api
     data = [
-        {"id": 0, "name": "Fafá de Belém", "score": 23},
-        {"id": 1, "name": "Fábio Júnior", "score": 12.5},
-        {"id": 2, "name": "Fábio", "score": 20000},
+        {'id': 23, 'name': 'Fafá de Belém'},
+        {'id': 12.5, 'name': 'Fábio Júnior'},
+        {'id': 20000, 'name': 'Fábio'},
     ]
 
     # When I index this source
-    s.index(data, field='name')
+    s.index(data, field='name', score='id')
 
     # Then I see that I can filter my results using the `term` parameter of the
     # `suggest()` method
     s.suggest('Fa').should.equal([
-        {"id": 0, "name": "Fafá de Belém", "score": 23},
+        {"id": 23, "name": "Fafá de Belém"},
     ])
 
     # And I also see that I can sort my results
     s.suggest('F').should.equal([
-        {"id": 1, "name": "Fábio Júnior", "score": 12.5},
-        {"id": 0, "name": "Fafá de Belém", "score": 23},
-        {"id": 2, "name": "Fábio", "score": 20000},
+        {'id': 12.5, 'name': 'Fábio Júnior'},
+        {'id': 23, 'name': 'Fafá de Belém'},
+        {'id': 20000, 'name': 'Fábio'},
     ])
 
     # And I also see that I can limit my results
     s.suggest('F', limit=2, offset=1).should.equal([
-        {"id": 0, "name": "Fafá de Belém", "score": 23},
-        {"id": 2, "name": "Fábio", "score": 20000},
+        {'id': 23, 'name': 'Fafá de Belém'},
+        {'id': 20000, 'name': 'Fábio'},
     ])
 
 
@@ -56,7 +56,7 @@ def test_dummy_backend_indexing():
     backend = suggestive.DummyBackend()
 
     # When I try to index stuff
-    indexed = backend.index(data, field='name', score='name')
+    indexed = backend.index(data, field='name', score='id')
 
     # Then I see that the number of indexed items is right
     indexed.should.equal(2)

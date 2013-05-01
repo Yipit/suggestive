@@ -174,8 +174,8 @@ class Suggestive(object):
         self.db = db
         self.backend = backend
 
-    def index(self, data_source, field):
-        self.backend.index(data_source, field)
+    def index(self, data_source, field, score='score'):
+        self.backend.index(data_source, field, score=score)
 
     def remove(self, doc_id):
         self.backend.remove(doc_id)
