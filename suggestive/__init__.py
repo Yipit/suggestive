@@ -169,7 +169,7 @@ class RedisBackend(object):
 
     def index(self, data_source, field, score='score'):
         count = 0
-        pipe = self.conn.pipeline()
+        pipe = self.conn.pipeline(transaction=False)
         for doc in data_source:
             doc_id = doc['id']
             self.remove(doc_id)
@@ -194,7 +194,7 @@ class RedisBackend(object):
         return count
 
     def remove(self, doc_id):
-        pipe = self.conn.pipeline()
+        pipe = self.conn.pipeline(transaction=False)
         cache = self.keys.for_cache(doc_id)
 
         # First, we remove the document id from the terms it is related to;
