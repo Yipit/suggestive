@@ -178,6 +178,8 @@ class RedisBackend(object):
 
                 # All possible terms for the fields we're analyzing right now.
                 terms = expand(doc[f])
+                if not terms:
+                    continue
 
                 # Caching which documents were related to which terms. It will
                 # speed up the removal process of a document from its terms a

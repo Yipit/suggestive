@@ -582,6 +582,26 @@ def test_both_backends_query_return_term_prefixed_words():
         ])
 
 
+def test_redis_backend_indexing_empty_fields():
+    # Given that I have an instance of our redis backend and some docs with
+    # empty fields
+    conn = Mock()
+    pipe = conn.pipeline.return_value
+    data = [{"id": 0, "name": ""}, {"id": 1, "name": "Clarete"}]
+    backend = suggestive.RedisBackend(conn=conn)
+    backend.remove = Mock()     # We don't care about removing stuff here
+
+    # When I try to index stuff
+    backend.index(data, field='name', score='id')
+
+    # Then I see that the `sadd` command is not called when no terms are found
+    # inside of a field of a document
+    list(pipe.sadd.call_args_list).should.equal([
+        call('suggestive:dt:1',
+             'c', 'cl', 'cla', 'clar', 'clare', 'claret', 'clarete')
+    ])
+
+
 def test_suggestive_remove():
     # Given that we have an instance of suggestive with a fake backend
     backend = Mock()
