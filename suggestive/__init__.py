@@ -30,6 +30,14 @@ def expand(phrase, min_chars=1):
 
 
 def find_words_in_doc(doc, term):
+    """Walk through a dict `doc` and find all words that start with `term`
+
+    Just like this:
+
+        >>> doc = {'blah': 'Rocky Balboa', 'bleh': 'We love rock!'}
+        >>> find_words_in_doc(doc, 'ro')
+        ['Rocky', 'rock']
+    """
     sub = []
     values = [v for v in doc.values() if isinstance(v, six.string_types)]
     for value in values:
@@ -39,14 +47,60 @@ def find_words_in_doc(doc, term):
 
 
 class DummyBackend(object):
+    """Reference implementation for all new features
+
+    This dummy backend has two main goals:
+
+      1. it is easier to prototype new features using python data types than in
+         redis;
+
+      2. it should be safe to use this backend when you need to write unit
+         tests that use suggestive;
+
+    To use this class, you just need to instantiate the `Suggestive` class
+    passing an instance of this class to the `backend` argument. Just like
+    this:
+
+        >>> import suggestive
+        >>> s = suggestive.Suggestive('db', backend=suggestive.DummyBackend())
+        >>> s.index([{'id': 0, 'name': 'Lincoln'}], field='name', score='id')
+        >>> s.suggest('li')
+        [{'id': 0, 'name': 'Lincoln'}]
+
+    Boom!
+    """
     def __init__(self):
         self._documents = {}
         self._terms = defaultdict(list)
 
     def documents(self):
+        """Return all indexed documents"""
         return self._documents
 
     def index(self, data, field, score='score'):
+        """Index a list of documents
+
+        Before receiving suggestions, you need to feed a database with all the
+        documents that suggestive will manage. The `data` field is an iterable
+        containing dictionaries that _must_ have the same keys. IOW, the code
+        below will raise a `KeyError`:
+
+            >>> index([{'id': 0, 'name': 'Lincoln'}, {'id': 1}], field='name')
+
+        The param `field` is a `str` or a `list` of `str` that informs which
+        keys of the document should be indexed. For example:
+
+            >>> index([{'id': 0, 'name': 'Lincoln Clarete'}], field='name')
+
+        The code above will index the words 'Lincoln' and 'Clarete'. The param
+        `score` informs which field should be used to sort the documents.
+
+        Both `field` and `score` keys are *REQUIRED* in all docs you try to
+        index. You can use a different key name for the `score` field. This
+        way, the following example is still valid:
+
+            >>> index([{'id': 0, 'name': 'Lincoln'}], field='name', score='id')
+        """
         count = 0
         for doc in sorted(data, key=lambda x: x[score]):
             doc_id = doc['id']
@@ -59,6 +113,11 @@ class DummyBackend(object):
         return count
 
     def remove(self, doc_id):
+        """Remove a document from the storage and all its terms too
+
+        This method is smart enough to don't cleanup terms used for more than
+        one document.
+        """
         # Cleaning up terms
         for term, docs in self._terms.items():
             if doc_id in docs:
@@ -170,6 +229,43 @@ class RedisBackend(object):
 
 
 class Suggestive(object):
+    """Magic autocomplete support for your python project
+
+    Suggestive provides autocomplete with some few lines of code:
+
+        >>> import suggestive
+        >>> s = suggestive.Suggestive('db', backend=suggestive.DummyBackend())
+        >>> s.index([{'id': 0, 'name': 'Lincoln'}], field='name', score='id')
+        >>> s.suggest('li')
+        [{'id': 0, 'name': 'Lincoln'}]
+
+    ## Backends
+
+    Suggestive currently supports to backends: memory and redis.
+
+    ### Memory backend
+
+    The memory backend uses native python data types and all the data will be
+    destroyed when the your instance of the `Suggestive` class gets freed by
+    python.
+
+    ### Unit tests of features that use suggestive
+
+    One of the main reasons for supporting a dummy backend that doesn't persist
+    data is to make it easier to write unit-tests for code that deppends on
+    this library. You don't have to mock anything. Just pass an instance of the
+    `DummyBackend` class to the `backend` parameter.
+
+    ### Redis backend
+
+    This is the production backend. Suggestive stores each piece of the indexed
+    term in a separate key in redis. Each term key is a sorted set containing
+    the id of the document that contains that term.
+
+    The documents are jsonified and saved inside of a hash table. This might
+    consume a lot of memory, be careful and keep your documents as small as
+    possible!
+    """
 
     def __init__(self, db, backend):
         self.db = db
