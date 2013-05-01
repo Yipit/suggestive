@@ -21,7 +21,7 @@ def test_suggestive():
 
     # Then I see that I can filter my results using the `term` parameter of the
     # `suggest()` method
-    s.suggest('Fa').should.equal([
+    s.suggest('Faf').should.equal([
         {"id": 23, "name": "Fafá de Belém"},
     ])
 
@@ -592,3 +592,16 @@ def test_suggestive_remove():
 
     # Then I see that the backend remove() method was successfuly called
     backend.remove.assert_called_once_with(1)
+
+
+def test_suggestive_unidecoded():
+    # Given that I have an instance of suggestive
+    s = suggestive.Suggestive('blah', backend=suggestive.DummyBackend())
+
+    # When I index accented words
+    data = [{'id': 0, 'name': 'Líncóln'}]
+    s.index(data, field='name', score='id')
+
+    # Then I see that suggestive will still suggest stuff when fed with a word
+    # without accent
+    s.suggest('li').should.equal([{'id': 0, 'name': 'Líncóln'}])

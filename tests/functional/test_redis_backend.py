@@ -133,7 +133,7 @@ def test_suggestive(context):
 
     # Then I see that I can filter my results using the `term` parameter of the
     # `suggest()` method
-    s.suggest('Fa').should.equal([
+    s.suggest('Faf').should.equal([
         {"id": 0, "name": "Fafá de Belém", "score": 23},
     ])
 

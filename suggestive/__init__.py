@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 from collections import defaultdict
 from itertools import chain
+from unidecode import unidecode
 
 import re
 import six
@@ -23,7 +24,7 @@ def expand(phrase, min_chars=1):
     """
     base = list(chain.from_iterable(
         [word[0:index] for index, sub in enumerate(word, start=min_chars)]
-        for word in phrase.lower().split()))
+        for word in unidecode(phrase.lower()).split()))
     result = set()
     return [x for x in base if x not in result and not result.add(x)]
 
@@ -182,4 +183,4 @@ class Suggestive(object):
 
     def suggest(self, term, words=False, limit=-1, offset=0):
         return self.backend.query(
-            term, words=words, limit=limit, offset=offset)
+            unidecode(term), words=words, limit=limit, offset=offset)
