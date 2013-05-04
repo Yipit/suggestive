@@ -118,7 +118,6 @@ def test_redis_backend_cleaning_before_indexing(context):
 @scenario(connect)
 def test_suggestive(context):
     s = suggestive.Suggestive(
-        'names',
         backend=suggestive.RedisBackend(conn=context.conn))
 
     # Given that I have a source registered in my api

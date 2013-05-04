@@ -62,7 +62,7 @@ class DummyBackend(object):
     this:
 
         >>> import suggestive
-        >>> s = suggestive.Suggestive('db', backend=suggestive.DummyBackend())
+        >>> s = suggestive.Suggestive(backend=suggestive.DummyBackend())
         >>> s.index([{'id': 0, 'name': 'Lincoln'}], field='name', score='id')
         >>> s.suggest('li')
         [{'id': 0, 'name': 'Lincoln'}]
@@ -245,7 +245,7 @@ class Suggestive(object):
     Suggestive provides autocomplete with some few lines of code:
 
         >>> import suggestive
-        >>> s = suggestive.Suggestive('db', backend=suggestive.DummyBackend())
+        >>> s = suggestive.Suggestive(backend=suggestive.DummyBackend())
         >>> s.index([{'id': 0, 'name': 'Lincoln'}], field='name', score='id')
         >>> s.suggest('li')
         [{'id': 0, 'name': 'Lincoln'}]
@@ -278,8 +278,7 @@ class Suggestive(object):
     possible!
     """
 
-    def __init__(self, db, backend):
-        self.db = db
+    def __init__(self, backend):
         self.backend = backend
 
     def index(self, data_source, field, score='score'):

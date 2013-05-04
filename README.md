@@ -21,7 +21,7 @@ see examples for both steps separately.
 ... ]
 >>> import redis
 >>> from suggestive import Suggestive, RedisBackend
->>> s = Suggestive('names', RedisBackend(conn=redis.StrictRedis()))
+>>> s = Suggestive(RedisBackend(conn=redis.StrictRedis()))
 >>> s.index(data, field='name')
 ```
 
@@ -35,7 +35,7 @@ instance and use the `suggest` method:
 ```python
 >>> import redis
 >>> from suggestive import Suggestive, RedisBackend
->>> s = Suggestive('names', RedisBackend(conn=redis.StrictRedis()))
+>>> s = Suggestive(RedisBackend(conn=redis.StrictRedis()))
 >>> s.suggest('lin')
 [{u'score': 123456, u'id': 5, u'name': u'Linus'}, {u'score': 123, u'id': 0, u'name': u'Lincoln'}]
 ```

@@ -7,7 +7,7 @@ import json
 
 
 def test_suggestive():
-    s = suggestive.Suggestive('names', backend=suggestive.DummyBackend())
+    s = suggestive.Suggestive(backend=suggestive.DummyBackend())
 
     # Given that I have a source registered in my api
     data = [
@@ -576,7 +576,7 @@ def test_both_backends_query_return_term_prefixed_words():
     redis_backend.query('pa', words=True).should.equal([
         'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
     ])
-    suggestive.Suggestive('meh', backend=dummy_backend).suggest(
+    suggestive.Suggestive(backend=dummy_backend).suggest(
         'pa', words=True).should.equal([
             'Pascal', 'Paníni', 'Pacific', 'Passion-Fruit'
         ])
@@ -605,7 +605,7 @@ def test_redis_backend_indexing_empty_fields():
 def test_suggestive_remove():
     # Given that we have an instance of suggestive with a fake backend
     backend = Mock()
-    s = suggestive.Suggestive('stuff', backend=backend)
+    s = suggestive.Suggestive(backend=backend)
 
     # When I try to remove a document from the index
     s.remove(1)
@@ -616,7 +616,7 @@ def test_suggestive_remove():
 
 def test_suggestive_unidecoded():
     # Given that I have an instance of suggestive
-    s = suggestive.Suggestive('blah', backend=suggestive.DummyBackend())
+    s = suggestive.Suggestive(backend=suggestive.DummyBackend())
 
     # When I index accented words
     data = [{'id': 0, 'name': 'Líncóln'}]
