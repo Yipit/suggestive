@@ -625,3 +625,19 @@ def test_suggestive_unidecoded():
     # Then I see that suggestive will still suggest stuff when fed with a word
     # without accent
     s.suggest('li').should.equal([{'id': 0, 'name': 'Líncóln'}])
+
+
+def test_redis_get_score_with_existing_term():
+    conn = Mock()
+    backend = suggestive.RedisBackend(conn=conn)
+    conn.hmget.return_value = [u'{"score": 117.0, "id": "botanical"}']
+    assert backend.get_score("botanical") == 117.0
+    backend.conn.hmget.assert_called_once_with(backend.keys.for_docs(), "botanical")
+
+
+def test_redis_get_score_with_no_existing_term():
+    conn = Mock()
+    backend = suggestive.RedisBackend(conn=conn)
+    conn.hmget.return_value = [None]
+    assert backend.get_score("hello") == 0
+    backend.conn.hmget.assert_called_once_with(backend.keys.for_docs(), "hello")

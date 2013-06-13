@@ -229,6 +229,15 @@ class RedisBackend(object):
 
         return result
 
+    def get_score(self, item_id):
+        '''
+        Given an item id (or name), returns the current score of that term
+        '''
+        key = self.conn.hmget(self.keys.for_docs(), item_id)[0]
+        if key is None:
+            return 0
+        return float(json.loads(key)["score"])
+
 
 class Suggestive(object):
     """Magic autocomplete support for your python project
