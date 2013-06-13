@@ -9,7 +9,7 @@ import six
 import json
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 
 def expand(phrase, min_chars=1):
